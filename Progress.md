@@ -4,7 +4,7 @@ Last updated: 2026-08-25
 
 ## Status
 
-Task 2A and Task 2B are implemented, locally tested, live-verified against SuperDocs, and pushed to the personal fork. The only intentional scope boundary is Task 2A's documented REST fallback in place of an MCP-client transport.
+Task 2A and Task 2B are complete and frozen. They are locally tested, live-verified against SuperDocs, pushed to the personal fork, and submitted in an upstream pull request. The only intentional scope boundary is Task 2A's documented REST fallback in place of an MCP-client transport.
 
 ## Task 2A — Bounded Run Agent
 
@@ -56,4 +56,7 @@ See the use-case READMEs for copy-paste setup and commands:
 ## Delivery
 
 - Personal fork: <https://github.com/apooravmalik/superdocs-builds>
-- Current work is ready for the final fresh-clone check, secret check, and upstream pull request.
+- Fresh-clone check passed with no API key: both test suites and Task 2B template preview work exactly from the fork.
+- Secret check passed: public key references are placeholders only; `.env` and generated outputs are ignored.
+- Upstream pull request: <https://github.com/superdocsapp/superdocs-builds/pull/159>
+- Task 2 is frozen. Do not add scope outside a submission-blocking fix.
