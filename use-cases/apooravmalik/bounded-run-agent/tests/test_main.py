@@ -1,11 +1,11 @@
-import sys, unittest
+import sys, tempfile, unittest
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).parents[1])); from main import run
+sys.path.insert(0,str(Path(__file__).parents[1])); from main import resource_context, run
 
 class Fake:
- def __init__(self,fail=False,export=True):self.fail,self.export=fail,export
+ def __init__(self,fail=False,export=True):self.fail,self.export,self.instructions=fail,export,[]
  def upload(self,path,session):return {"persisted":True}
- def edit(self,s,i):return {"job_id":i}
+ def edit(self,s,i):self.instructions.append(i);return {"job_id":i}
  def job(self,j):return {"status":"failed"} if self.fail else {"status":"completed"}
  def wait(self,j):return self.job(j)
  def export(self,s,p):
@@ -21,4 +21,8 @@ class TestRun(unittest.TestCase):
   r=run(Fake(export=False),"x","one",1,None,True,"x");self.assertEqual(r["status"],"COMPLETED");self.assertIn("export_error",r)
  def test_deadline_stops_before_edit(self):
   times=iter([1,2,2]); r=run(Fake(),"x","one",1,0,True,"x",lambda:next(times));self.assertEqual(r["status"],"DEADLINE_EXCEEDED")
+ def test_text_resource_is_included_in_edit_instruction(self):
+  with tempfile.TemporaryDirectory() as directory:
+   path=Path(directory,"reference.txt");path.write_text("Use formal terminology.");client=Fake();run(client,"x","one",1,None,True,"x",resources=[str(path)])
+   self.assertIn("Use formal terminology.",client.instructions[0]);self.assertEqual(resource_context([str(path)]).splitlines()[0],"Reference: reference.txt")
 if __name__=="__main__":unittest.main()

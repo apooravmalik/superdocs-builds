@@ -4,8 +4,8 @@ Builds a structured assessment and a deterministic matching rubric before any do
 
 ```bash
 export SUPERDOCS_API_KEY=your-key-here
-python3 main.py --topic Photosynthesis --grade 8 --questions 5 --total-marks 25 --auto-approve-demo
+python3 main.py --topic Photosynthesis --grade 8 --questions 5 --total-marks 25
 python3 -m unittest discover -s tests -v
 ```
 
-The use case renders one combined **Assessment and Rubric** document: this keeps the review/export flow atomic while preserving visible `Qn ↔ Qn` alignment. It creates the exact HTML in a SuperDocs session, asks for explicit user review before finalization unless demo approval is selected, then exports DOCX.
+The CLI prints the complete question/rubric package before asking for confirmation. Use `--preview-only` to inspect without calling SuperDocs, or `--auto-approve-demo` only for demos. The use case renders one combined **Assessment and Rubric** document, keeping the review/export flow atomic while preserving visible `Qn ↔ Qn` alignment.

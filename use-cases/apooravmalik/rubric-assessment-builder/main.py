@@ -94,5 +94,8 @@ def publish(client,package:Package,auto:bool,output:str)->dict:
     except Exception as error:return {"status":"EXPORT_FAILED","session_id":session,"export_error":str(error),"exported":False}
 
 if __name__=="__main__":
-    p=argparse.ArgumentParser();p.add_argument("--topic",required=True);p.add_argument("--grade");p.add_argument("--questions",type=int,required=True);p.add_argument("--total-marks",type=int);p.add_argument("--auto-approve-demo",action="store_true");p.add_argument("--output",default="output/assessment-rubric.docx");a=p.parse_args()
-    package=build(a.topic,a.questions,a.total_marks,a.grade); print(json.dumps({"package":asdict(package),"result":publish(SuperDocs(os.getenv("SUPERDOCS_API_KEY","")),package,a.auto_approve_demo,a.output)},indent=2))
+    p=argparse.ArgumentParser(description="Human-reviewed assessment and rubric builder")
+    p.add_argument("--topic");p.add_argument("--grade");p.add_argument("--questions",type=int);p.add_argument("--total-marks",type=int);p.add_argument("--preview-only",action="store_true");p.add_argument("--auto-approve-demo",action="store_true");p.add_argument("--output",default="output/assessment-rubric.docx");a=p.parse_args()
+    topic=a.topic or input("Assessment topic: ").strip(); questions=a.questions if a.questions is not None else int(input("Question count: ")); package=build(topic,questions,a.total_marks,a.grade)
+    print(json.dumps({"package":asdict(package)},indent=2))
+    if not a.preview_only: print(json.dumps({"result":publish(SuperDocs(os.getenv("SUPERDOCS_API_KEY","")),package,a.auto_approve_demo,a.output)},indent=2))
