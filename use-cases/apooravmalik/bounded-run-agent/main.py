@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse, json, mimetypes, os, re, time, uuid, zipfile
 from dataclasses import asdict, dataclass
 from enum import StrEnum
+from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree
 from urllib.error import HTTPError, URLError
@@ -21,6 +22,16 @@ class TaskStatus(StrEnum): PENDING="PENDING"; IN_PROGRESS="IN_PROGRESS"; COMPLET
 class RunStatus(StrEnum): COMPLETED="COMPLETED"; PARTIALLY_COMPLETED="PARTIALLY_COMPLETED"; FAILED="FAILED"; BUDGET_EXHAUSTED="BUDGET_EXHAUSTED"; DEADLINE_EXCEEDED="DEADLINE_EXCEEDED"
 @dataclass
 class Task: id:str; description:str; status:TaskStatus=TaskStatus.PENDING; error:str|None=None
+
+class TextOnly(HTMLParser):
+    def __init__(self): super().__init__(); self.parts=[]
+    def handle_data(self,data): self.parts.append(data)
+
+def plain_text(value:str)->str:
+    parser=TextOnly(); parser.feed(value); return " ".join("".join(parser.parts).split())
+
+def clipped(value:str,limit:int=280)->str:
+    return value if len(value)<=limit else value[:limit-1]+"…"
 
 def plan(request:str)->list[Task]:
     pieces=[re.sub(r"^\d+[.)]\s*","",x.strip()) for x in re.split(r";|\n",request) if x.strip()]
@@ -43,12 +54,28 @@ def resource_context(paths:list[str]|None)->str:
     return "\n\n".join(references)
 
 def show_changes(task:Task,changes:list[dict],auto:bool)->bool:
-    print(f"\n--- Proposed change for {task.id}: {task.description} ---")
-    print(json.dumps(changes,indent=2) if changes else "SuperDocs returned no itemized diff; review the task request above.")
+    print(f"\nReview {task.id} · {task.description}")
+    print("─"*72)
+    if not changes: print("SuperDocs did not return itemized diffs. Review the requested task before deciding.")
+    for number,change in enumerate(changes,1):
+        print(f"{number}. {change.get('operation','edit').capitalize()} in document section")
+        old,new=plain_text(change.get("old_html","")),plain_text(change.get("new_html",""))
+        if old: print(f"   − {clipped(old)}")
+        if new: print(f"   + {clipped(new)}")
+        if change.get("ai_explanation"): print(f"   Why: {clipped(change['ai_explanation'])}")
+    print("─"*72)
     if auto:
         print("Auto-approved because --auto-approve-demo was supplied.")
         return True
-    return input("Apply these changes? [y/N] ").strip().lower()=="y"
+    return input(f"Apply {len(changes)} proposed change(s)? [y/N] ").strip().lower()=="y"
+
+def show_run_result(result:dict)->None:
+    print(f"\nRun {result['status']} · {result['operations_used']}/{result['operations_allowed']} operations used")
+    if result["completed"]: print("Completed: "+", ".join(result["completed"]))
+    if result["failed"]: print("Not applied: "+", ".join(task["id"] for task in result["failed"]))
+    if result.get("stop_reason"): print("Stopped: "+result["stop_reason"])
+    if result.get("export_path"): print("Export: "+result["export_path"])
+    if result.get("export_error"): print("Export failed: "+result["export_error"])
 
 class SuperDocs:
     def __init__(self,key:str,base:str=os.getenv("SUPERDOCS_BASE_URL","https://api.superdocs.app")):
@@ -125,4 +152,4 @@ if __name__=="__main__":
     p.add_argument("--file",help="DOCX to edit");p.add_argument("--request",help="Semicolon or newline separated edits");p.add_argument("--resource",action="append",help="Optional .docx, .md, or .txt reference; repeatable")
     p.add_argument("--max-operations",type=int,help="Maximum permitted edits");p.add_argument("--deadline-seconds",type=float);p.add_argument("--auto-approve-demo",action="store_true");p.add_argument("--output",default="output/result.docx");a=p.parse_args()
     file_path=a.file or input("DOCX to edit: ").strip(); request=a.request or input("Editing request: ").strip(); max_operations=a.max_operations if a.max_operations is not None else int(input("Maximum operations: "))
-    print(json.dumps(run(SuperDocs(os.getenv("SUPERDOCS_API_KEY","")),file_path,request,max_operations,a.deadline_seconds,a.auto_approve_demo,a.output,resources=a.resource),indent=2,default=str))
+    show_run_result(run(SuperDocs(os.getenv("SUPERDOCS_API_KEY","")),file_path,request,max_operations,a.deadline_seconds,a.auto_approve_demo,a.output,resources=a.resource))

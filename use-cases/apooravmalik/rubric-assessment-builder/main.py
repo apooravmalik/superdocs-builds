@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse, html, json, os, time, uuid
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -53,6 +53,20 @@ def render(package:Package)->str:
     rows="".join(f"<tr><td>{html.escape(r.question_id)}</td><td>{r.max_marks}</td><td>{html.escape(r.full_credit)}</td><td>{html.escape(r.partial_credit)}</td><td>{html.escape(r.no_credit)}</td></tr>" for r in package.rubric)
     return f"<h1>{html.escape(package.title)}</h1><h2>Assessment</h2><ol>{questions}</ol><h2>Rubric</h2><table><thead><tr><th>Question</th><th>Marks</th><th>Full credit</th><th>Partial credit</th><th>No credit</th></tr></thead><tbody>{rows}</tbody></table>"
 
+def show_package(package:Package)->None:
+    print(f"\n{package.title}\n"+"─"*72)
+    print("Questions")
+    for question in package.questions: print(f"{question.id} · {question.marks} marks\n  {question.text}")
+    print("\nRubric")
+    for row in package.rubric: print(f"{row.question_id} · {row.max_marks} marks\n  Full: {row.full_credit}\n  Partial: {row.partial_credit}\n  None: {row.no_credit}")
+    print("─"*72)
+
+def show_publish_result(result:dict)->None:
+    print(f"\nAssessment {result['status']}")
+    if result.get("export_path"): print("Export: "+result["export_path"])
+    if result.get("error"): print("Error: "+result["error"])
+    if result.get("export_error"): print("Export failed: "+result["export_error"])
+
 class SuperDocs:
     def __init__(self,key:str,base:str=os.getenv("SUPERDOCS_BASE_URL","https://api.superdocs.app")):
         if not key: raise ValueError("SUPERDOCS_API_KEY is required")
@@ -97,5 +111,5 @@ if __name__=="__main__":
     p=argparse.ArgumentParser(description="Human-reviewed assessment and rubric builder")
     p.add_argument("--topic");p.add_argument("--grade");p.add_argument("--questions",type=int);p.add_argument("--total-marks",type=int);p.add_argument("--preview-only",action="store_true");p.add_argument("--auto-approve-demo",action="store_true");p.add_argument("--output",default="output/assessment-rubric.docx");a=p.parse_args()
     topic=a.topic or input("Assessment topic: ").strip(); questions=a.questions if a.questions is not None else int(input("Question count: ")); package=build(topic,questions,a.total_marks,a.grade)
-    print(json.dumps({"package":asdict(package)},indent=2))
-    if not a.preview_only: print(json.dumps({"result":publish(SuperDocs(os.getenv("SUPERDOCS_API_KEY","")),package,a.auto_approve_demo,a.output)},indent=2))
+    show_package(package)
+    if not a.preview_only: show_publish_result(publish(SuperDocs(os.getenv("SUPERDOCS_API_KEY","")),package,a.auto_approve_demo,a.output))
