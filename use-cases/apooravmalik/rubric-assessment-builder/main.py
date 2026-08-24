@@ -20,24 +20,43 @@ class Question: id:str; text:str; marks:int; question_type:str="short_answer"
 @dataclass
 class RubricRow: question_id:str; max_marks:int; full_credit:str; partial_credit:str; no_credit:str
 @dataclass
-class Package: title:str; topic:str; questions:list[Question]; rubric:list[RubricRow]
+class Template: name:str; question_blueprint:list[str]; rubric_levels:list[str]
+@dataclass
+class Package: title:str; topic:str; questions:list[Question]; rubric:list[RubricRow]; template_name:str="default"
 
-def build(topic:str,count:int,total_marks:int|None=None,grade:str|None=None)->Package:
+REQUIRED_RUBRIC_LEVELS={"full_credit","partial_credit","no_credit"}
+
+def load_template(path:str)->Template:
+    try: data=json.loads(Path(path).read_text())
+    except (OSError,json.JSONDecodeError) as error: raise ValueError(f"Invalid template: {error}") from error
+    name,blueprint,levels=data.get("name"),data.get("question_blueprint"),data.get("rubric_levels")
+    if not isinstance(name,str) or not name.strip(): raise ValueError("Template needs a non-empty name")
+    if not isinstance(blueprint,list) or not blueprint or not all(isinstance(item,str) and item.strip() for item in blueprint): raise ValueError("Template question_blueprint must be a non-empty string list")
+    if not isinstance(levels,list) or set(levels)!=REQUIRED_RUBRIC_LEVELS or len(levels)!=3: raise ValueError("Template rubric_levels must contain full_credit, partial_credit, no_credit exactly once")
+    return Template(name,blueprint,levels)
+
+def question_text(kind:str,topic:str,level:str,number:int)->str:
+    prompts={
+        "definition":f"Define a central concept in {topic} for {level}.",
+        "process":f"Explain how a key process in {topic} works, using one example.",
+        "inputs_outputs":f"Identify the main inputs and outputs involved in {topic}.",
+        "comparison":f"Compare two important ideas or stages in {topic}.",
+        "application":f"Apply {topic} to a new everyday or real-world scenario.",
+        "short_answer":f"Explain one important idea in {topic}, using a relevant example (question {number}).",
+    }
+    return prompts.get(kind,f"Explain {kind.replace('_',' ')} in {topic}, using one example (question {number}).")
+
+def build(topic:str,count:int,total_marks:int|None=None,grade:str|None=None,template:Template|None=None)->Package:
     if not topic.strip() or count<1: raise ValueError("topic and a positive question count are required")
     if total_marks is not None and total_marks<count: raise ValueError("total marks must be at least question count")
     marks=[(total_marks or count)//count]*count
     for i in range((total_marks or count)%count): marks[i]+=1
+    blueprint=template.question_blueprint if template else ["definition","process","inputs_outputs","comparison","application"]
+    if template and count>len(blueprint): raise ValueError(f"Template {template.name} supports at most {len(blueprint)} questions")
     level=f"Grade {grade}" if grade else "the requested level"
-    prompts=[
-        f"Define a central concept in {topic} for {level}.",
-        f"Explain how a key process in {topic} works, using one example.",
-        f"Identify the main inputs and outputs involved in {topic}.",
-        f"Compare two important ideas or stages in {topic}.",
-        f"Apply {topic} to a new everyday or real-world scenario.",
-    ]
-    questions=[Question(f"Q{i+1}",prompts[i] if i<len(prompts) else f"Describe another important idea in {topic}, with an example (focus {i+1}).",marks[i]) for i in range(count)]
-    rubric=[RubricRow(q.id,q.marks,f"Accurately explains {topic} with a relevant example.",f"Shows partial understanding of {topic}.","Missing, incorrect, or unrelated response.") for q in questions]
-    package=Package(f"{topic} Assessment",topic,questions,rubric); validate(package,count,total_marks); return package
+    questions=[Question(f"Q{i+1}",question_text(blueprint[i] if i<len(blueprint) else "short_answer",topic,level,i+1),marks[i],blueprint[i] if i<len(blueprint) else "short_answer") for i in range(count)]
+    rubric=[RubricRow(q.id,q.marks,f"Accurately answers the {q.question_type.replace('_',' ')} question about {topic}.",f"Shows partial understanding of the {q.question_type.replace('_',' ')} question.","Missing, incorrect, or unrelated response.") for q in questions]
+    package=Package(f"{topic} Assessment",topic,questions,rubric,template.name if template else "default"); validate(package,count,total_marks); return package
 
 def validate(package:Package,requested:int|None=None,total:int|None=None)->None:
     ids=[q.id for q in package.questions]; rows=[r.question_id for r in package.rubric]
@@ -55,6 +74,7 @@ def render(package:Package)->str:
 
 def show_package(package:Package)->None:
     print(f"\n{package.title}\n"+"─"*72)
+    print(f"Template: {package.template_name}")
     print("Questions")
     for question in package.questions: print(f"{question.id} · {question.marks} marks\n  {question.text}")
     print("\nRubric")
@@ -109,7 +129,7 @@ def publish(client,package:Package,auto:bool,output:str)->dict:
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description="Human-reviewed assessment and rubric builder")
-    p.add_argument("--topic");p.add_argument("--grade");p.add_argument("--questions",type=int);p.add_argument("--total-marks",type=int);p.add_argument("--preview-only",action="store_true");p.add_argument("--auto-approve-demo",action="store_true");p.add_argument("--output",default="output/assessment-rubric.docx");a=p.parse_args()
-    topic=a.topic or input("Assessment topic: ").strip(); questions=a.questions if a.questions is not None else int(input("Question count: ")); package=build(topic,questions,a.total_marks,a.grade)
+    p.add_argument("--topic");p.add_argument("--grade");p.add_argument("--questions",type=int);p.add_argument("--total-marks",type=int);p.add_argument("--template",help="Path to a JSON assessment template");p.add_argument("--preview-only",action="store_true");p.add_argument("--auto-approve-demo",action="store_true");p.add_argument("--output",default="output/assessment-rubric.docx");a=p.parse_args()
+    topic=a.topic or input("Assessment topic: ").strip(); questions=a.questions if a.questions is not None else int(input("Question count: ")); package=build(topic,questions,a.total_marks,a.grade,load_template(a.template) if a.template else None)
     show_package(package)
     if not a.preview_only: show_publish_result(publish(SuperDocs(os.getenv("SUPERDOCS_API_KEY","")),package,a.auto_approve_demo,a.output))

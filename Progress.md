@@ -4,7 +4,7 @@ Last updated: 2026-08-25
 
 ## Status
 
-Task 2A and Task 2B are implemented, locally tested, live-verified against SuperDocs, and pushed to the personal fork.
+Task 2A and Task 2B are implemented, locally tested, live-verified against SuperDocs, and pushed to the personal fork. The only intentional scope boundary is Task 2A's documented REST fallback in place of an MCP-client transport.
 
 ## Task 2A — Bounded Run Agent
 
@@ -18,12 +18,15 @@ Location: `use-cases/apooravmalik/bounded-run-agent/`
 - [x] Honest completed, failed, unattempted, stop-reason, and export reporting.
 - [x] DOCX export after the run.
 - [x] Live SuperDocs edit, approval, completion, and export verified.
+- [x] Live honest-report proof: four requested tasks with two allowed operations produced `T1, T2` completed; `T3, T4` not attempted; `OPERATION_BUDGET_EXHAUSTED`; and a DOCX export.
+- [x] MCP surface inspected. The CLI preserves the live-verified REST transport; the exact MCP limitation is documented in its README.
 
 ## Task 2B — Rubric + Assessment Builder
 
 Location: `use-cases/apooravmalik/rubric-assessment-builder/`
 
 - [x] Structured `Q1`–`Qn` questions and matching rubric rows.
+- [x] External JSON templates via `--template`, with `mixed.json` and `short-answer.json` proving that template selection changes question shape.
 - [x] Validation for duplicate IDs, missing/extra rubric rows, mark mismatches, and incorrect totals.
 - [x] Readable terminal assessment/rubric preview and confirmation.
 - [x] `--preview-only` mode, which makes no SuperDocs request.
@@ -33,7 +36,7 @@ Location: `use-cases/apooravmalik/rubric-assessment-builder/`
 ## Verification
 
 - [x] 6 bounded-run-agent unit tests pass.
-- [x] 5 rubric-assessment-builder unit tests pass.
+- [x] 7 rubric-assessment-builder unit tests pass, including template loading, validation, and shape-change coverage.
 - [x] CLI help and no-network assessment preview checked.
 - [x] Generated DOCX outputs and local `.env` files are Git-ignored.
 
@@ -53,5 +56,4 @@ See the use-case READMEs for copy-paste setup and commands:
 ## Delivery
 
 - Personal fork: <https://github.com/apooravmalik/superdocs-builds>
-- Current commit before this progress file: `cd80b7a`
-- Remaining external step: open a pull request from the personal fork to the upstream repository if submission requires one.
+- Current work is ready for the final fresh-clone check, secret check, and upstream pull request.

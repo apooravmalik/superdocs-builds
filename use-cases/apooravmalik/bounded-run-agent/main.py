@@ -72,7 +72,9 @@ def show_changes(task:Task,changes:list[dict],auto:bool)->bool:
 def show_run_result(result:dict)->None:
     print(f"\nRun {result['status']} · {result['operations_used']}/{result['operations_allowed']} operations used")
     if result["completed"]: print("Completed: "+", ".join(result["completed"]))
-    if result["failed"]: print("Not applied: "+", ".join(task["id"] for task in result["failed"]))
+    if result["failed"]: print("Failed/rejected: "+", ".join(task["id"] for task in result["failed"]))
+    unattempted=[task["id"] for task in result["tasks"] if task["status"]==TaskStatus.NOT_ATTEMPTED]
+    if unattempted: print("Not attempted: "+", ".join(unattempted))
     if result.get("stop_reason"): print("Stopped: "+result["stop_reason"])
     if result.get("export_path"): print("Export: "+result["export_path"])
     if result.get("export_error"): print("Export failed: "+result["export_error"])
